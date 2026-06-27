@@ -1,0 +1,26 @@
+# Dependencies (installed via `npm install`, never committed)
+node_modules/
+
+# Environment files with secrets (DB passwords, API keys, etc.)
+.env
+.env.*
+!.env.example
+
+# Build output (generated, can be rebuilt)
+dist/
+build/
+
+# Uploaded user files
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+
+# Local Claude Code settings
+.claude/

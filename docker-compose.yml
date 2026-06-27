@@ -1,0 +1,43 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-changeme}
+      MYSQL_DATABASE: edushare
+    ports: ["3306:3306"]
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-changeme}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./edushare-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "mysql://root:${DB_PASSWORD:-changeme}@db:3306/edushare"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      GROQ_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY in .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      PORT: 4000
+      UPLOAD_DIR: uploads
+    volumes:
+      - uploads:/app/uploads
+    ports: ["4000:4000"]
+
+  web:
+    build:
+      context: ./edushare-frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000/api}
+    depends_on: [api]
+    ports: ["5173:80"]
+
+volumes:
+  db_data:
+  uploads:

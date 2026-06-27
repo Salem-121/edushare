@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      CSP relaxed for dev: 'unsafe-inline' + 'unsafe-eval' are needed for Vite's
+      HMR runtime and React Refresh. In production, set a stricter CSP via a
+      response header from your hosting layer instead of this <meta>.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self' ws: http://localhost:4000 https://localhost:4000 ws://localhost:4000; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" />
+    <meta name="theme-color" content="#0f0e0b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FDFBF5" media="(prefers-color-scheme: light)" />
+    <meta name="description" content="EduShare — academic resource platform for teachers and students." />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+    <!-- Set data-theme BEFORE the React bundle runs so the first paint is correct
+         (no flash of dark before light, no race with HMR). -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var t = stored;
+          if (!t) {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (_) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
+    <title>EduShare — Academic Resource Platform</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

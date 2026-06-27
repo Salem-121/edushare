@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  filiereId Int?
+  filiere   Filiere? @relation(fields: [filiereId], references: [id], onDelete: SetNull)
+
+  lessons         Lesson[]
+  summaries       Summary[]
+  notifications   Notification[]
+  chatSessions    ChatSession[]
+  quizzes         Quiz[]
+  quizAttempts    QuizAttempt[]
+  practiceQuizzes PracticeQuiz[]
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model Module {
+  id          Int      @id @default(autoincrement())
+  name        String
+  code        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons Lesson[]
+}
+
+model Filiere {
+  id          Int      @id @default(autoincrement())
+  name        String
+  code        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  quizzes     QuizFiliere[]
+}
+
+model Lesson {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?
+  filePath      String
+  fileType      String
+  fileSize      Int
+  extractedText String?  @db.LongText
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  teacherId Int
+  teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  moduleId  Int
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  summaries    Summary[]
+  chatSessions ChatSession[]
+
+  @@index([createdAt])
+}
+
+model Summary {
+  id          Int           @id @default(autoincrement())
+  content     String        @db.LongText
+  status      SummaryStatus @default(PENDING)
+  feedback    String?
+  generatedBy GeneratedBy
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  lessonId Int
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([lessonId, status])
+  @@index([status])
+}
+
+enum SummaryStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  AUTO
+}
+
+enum GeneratedBy {
+  TEACHER
+  STUDENT
+}
+
+// ─── CHAT HISTORY ────────────────────────────────────
+model ChatSession {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId Int
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  role      String   // 'user' | 'assistant'
+  content   String   @db.LongText
+  createdAt DateTime @default(now())
+
+  sessionId Int
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+// ─── QUIZ (QCM) ──────────────────────────────────────
+model Quiz {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  timeLimit    Int      // duration in minutes
+  published    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teacherId Int
+  teacher   User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  questions Question[]
+  filieres  QuizFiliere[]
+  attempts  QuizAttempt[]
+}
+
+model QuizFiliere {
+  quizId    Int
+  filiereId Int
+  quiz      Quiz    @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  filiere   Filiere @relation(fields: [filiereId], references: [id], onDelete: Cascade)
+
+  @@id([quizId, filiereId])
+}
+
+model Question {
+  id      Int    @id @default(autoincrement())
+  text    String @db.Text
+  order   Int    @default(0)
+
+  quizId Int
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  choices Choice[]
+}
+
+model Choice {
+  id        Int     @id @default(autoincrement())
+  text      String  @db.Text
+  isCorrect Boolean @default(false)
+  order     Int     @default(0)
+
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id              Int      @id @default(autoincrement())
+  score           Int      // percentage 0-100
+  correctCount    Int
+  totalQuestions  Int
+  answers         String   @db.LongText // JSON: { questionId: choiceId }
+  completedAt     DateTime @default(now())
+
+  quizId    Int
+  quiz      Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentId Int
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([quizId, studentId])
+}
+
+// ─── PRACTICE QUIZ (student-generated, private) ──────
+// A quiz a student creates for themselves by dropping a PDF. It is never
+// published to a filière — it lives only on the student's own page, and the
+// student can retake it freely. Questions are stored as a JSON blob (same
+// convention as Summary.content / QuizAttempt.answers) to keep this feature
+// self-contained without extra Question/Choice tables.
+model PracticeQuiz {
+  id         Int      @id @default(autoincrement())
+  title      String
+  timeLimit  Int      // duration in minutes
+  questions  String   @db.LongText // JSON: [{ text, choices: [{ text, isCorrect }] }]
+  sourceName String?  // original file name the quiz was generated from
+  createdAt  DateTime @default(now())
+
+  // Most recent attempt (practice quizzes can be retaken — we keep the latest).
+  score          Int?
+  correctCount   Int?
+  totalQuestions Int?
+  answers        String?   @db.LongText // JSON: { questionIndex: choiceIndex }
+  completedAt    DateTime?
+
+  studentId Int
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, createdAt])
+}
